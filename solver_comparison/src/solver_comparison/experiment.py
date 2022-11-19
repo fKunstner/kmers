@@ -8,12 +8,8 @@ from typing import Callable, Optional
 import numpy as np
 
 from solver_comparison.expconf import ExpConf
-from solver_comparison.log import (
-    DataLogger,
-    RateLimitedLogger,
-    runtime,
-    seconds_to_human_readable,
-)
+from solver_comparison.log import (DataLogger, RateLimitedLogger, runtime,
+                                   seconds_to_human_readable)
 from solver_comparison.problem.problem import Problem
 from solver_comparison.problem.snapshot import Snapshot
 from solver_comparison.solvers.initializer import Initializer
@@ -59,7 +55,7 @@ class Experiment(ExpConf):
         self,
         progress_callback: Optional[
             Callable[["Experiment", float, Optional[Snapshot]], None]
-        ],
+        ] = None,
     ):
         curr_p = self._startup()
         start_time = time.perf_counter()
