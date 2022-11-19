@@ -64,6 +64,9 @@ class Experiment(ExpConf):
         curr_p = self._startup()
         start_time = time.perf_counter()
 
+        if progress_callback is None:
+            progress_callback = ExperimentMonitor().callback
+
         for t in range(self.opt.max_iter):
 
             with runtime() as iteration_time:
@@ -95,8 +98,7 @@ class Experiment(ExpConf):
             curr_p = new_p
 
             self.datalogger.end_step()
-            if progress_callback is not None:
-                progress_callback(self, t / self.opt.max_iter, curr_p)
+            progress_callback(self, t / self.opt.max_iter, curr_p)
 
             if self.opt.should_stop(df, dp, dg):
                 break
@@ -109,9 +111,7 @@ class ExperimentMonitor:
         self.timelogger = RateLimitedLogger(time_interval=log_every)
         self.start_time = time.perf_counter()
 
-    def progress_callback(
-        self, exp: Experiment, progress: float, snap: Optional[Snapshot]
-    ):
+    def callback(self, exp: Experiment, progress: float, snap: Optional[Snapshot]):
 
         max_iter = exp.opt.max_iter
         i = int(max_iter * progress)
