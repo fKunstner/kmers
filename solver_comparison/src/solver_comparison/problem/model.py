@@ -2,9 +2,13 @@ from typing import Dict, Literal, Type, Union, get_args
 
 from multinomial_model import multinomial_model
 from multinomial_simplex_model import multinomial_simplex_model
+from scipy.special import softmax
 
 
 class Logistic(multinomial_model):
+    def probabilities(self, theta):
+        return softmax(theta)
+
     def logp_grad(self, theta=None, nograd=False):
         f, g = super().logp_grad(theta)
         if nograd:
@@ -14,7 +18,8 @@ class Logistic(multinomial_model):
 
 
 class Simplex(multinomial_simplex_model):
-    pass
+    def probabilities(self, theta):
+        return theta
 
 
 KmerModel = Union[Logistic, Simplex]

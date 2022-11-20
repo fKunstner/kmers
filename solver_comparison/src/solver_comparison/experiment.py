@@ -1,6 +1,7 @@
 import base64
 import hashlib
 import logging
+import os
 import time
 from dataclasses import dataclass
 from typing import Callable, Optional
@@ -8,8 +9,13 @@ from typing import Callable, Optional
 import numpy as np
 
 from solver_comparison.expconf import ExpConf
-from solver_comparison.log import (DataLogger, RateLimitedLogger, runtime,
-                                   seconds_to_human_readable)
+from solver_comparison.log import (
+    DataLogger,
+    RateLimitedLogger,
+    exp_filepaths,
+    runtime,
+    seconds_to_human_readable,
+)
 from solver_comparison.problem.problem import Problem
 from solver_comparison.problem.snapshot import Snapshot
 from solver_comparison.solvers.initializer import Initializer
@@ -63,6 +69,7 @@ class Experiment(ExpConf):
         if progress_callback is None:
             progress_callback = ExperimentMonitor().callback
 
+        t = 0
         for t in range(self.opt.max_iter):
 
             with runtime() as iteration_time:
@@ -99,7 +106,24 @@ class Experiment(ExpConf):
             if self.opt.should_stop(df, dp, dg):
                 break
 
+        self.datalogger.summary(
+            {
+                "x": curr_p.model.probabilities(curr_p.param).tolist(),
+                "loss_records": curr_p.f(),
+                "iteration_counts": t,
+                "grad": curr_p.g().tolist(),
+            }
+        )
+
         self.datalogger.save()
+
+    def has_already_run(self):
+        conf_file, data_file, summary_file = exp_filepaths(self.hash())
+        return (
+            os.path.isfile(conf_file)
+            and os.path.isfile(data_file)
+            and os.path.isfile(summary_file)
+        )
 
 
 class ExperimentMonitor:

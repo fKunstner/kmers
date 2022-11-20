@@ -5,7 +5,7 @@ import time
 import warnings
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd  # type: ignore
 
@@ -35,6 +35,15 @@ def normalize_flatten_dict(d: Dict[str, Any], sep: str = "."):
     return _normalize_flatten_dict(d)
 
 
+def exp_filepaths(exp_id: str) -> Tuple[str, str, str]:
+    exp_folder = os.path.join(config.experiment_dir(), exp_id)
+    Path(exp_folder).mkdir(parents=True, exist_ok=True)
+    conf_file = os.path.join(exp_folder, exp_id + "_config.json")
+    data_file = os.path.join(exp_folder, exp_id + "_data.csv")
+    summary_file = os.path.join(exp_folder, exp_id + "_summary.json")
+    return conf_file, data_file, summary_file
+
+
 class DataLogger:
     """Tool to log data from an experiment and save the results to disk.
 
@@ -59,11 +68,12 @@ class DataLogger:
             datefmt="%Y-%m-%dT%H:%M:%S",
         )
 
-        self.filename: str = exp_id
+        self.exp_id: str = exp_id
         self._step: int = 0
         self._exp_conf = {} if exp_conf is None else exp_conf
         self._current_dict: Dict[str, Any] = {}
         self._dicts: List[Dict[str, Any]] = []
+        self._summary: Dict[str, Any] = {}
 
     def end_step(self) -> None:
         """Commits the results for the current step."""
@@ -86,6 +96,17 @@ class DataLogger:
         for k, v in kwargs.items():
             self._current_dict[deepcopy(k)] = deepcopy(v)
 
+    def summary(self, kwargs: dict) -> None:
+        """Pass a summary dictionary to be saved separately.
+
+        Repeated calls overwrite the values of the summary.
+
+        Args:
+            kwargs: dictionary of data to log
+        """
+        for k, v in kwargs.items():
+            self._summary[deepcopy(k)] = deepcopy(v)
+
     def save(self):
         """Saved the data as a csv.
 
@@ -103,20 +124,21 @@ class DataLogger:
                 "The current step will not be saved."
             )
 
-        exp_folder = os.path.join(config.experiment_dir(), self.filename)
-        Path(exp_folder).mkdir(parents=True, exist_ok=True)
-        exp_conf_file = os.path.join(exp_folder, self.filename + "_config.csv")
-        exp_data_file = os.path.join(exp_folder, self.filename + "_data.csv")
+        conf_file, data_file, summary_file = exp_filepaths(self.exp_id)
 
         logger = logging.getLogger(__name__)
-        logger.info(f"Saving config file in {exp_data_file}")
-        with open(exp_conf_file, "w") as fp:
-            json.dump(normalize_flatten_dict(self._exp_conf), fp)
+        logger.info(f"Saving config file in {data_file}")
+        config_df = pd.DataFrame.from_records([self._dicts])
+        config_df.to_csv(conf_file)
 
-        logger.info(f"Saving experiment results in {exp_data_file}")
+        logger.info(f"Saving experiment results in {data_file}")
         data_df = pd.DataFrame.from_records(self._dicts)
         data_df.index.name = "step"
-        data_df.to_csv(exp_data_file)
+        data_df.to_csv(data_file)
+
+        logger.info(f"Saving summary in {summary_file}")
+        summary_df = pd.DataFrame.from_records([self._summary])
+        summary_df.to_csv(summary_file)
 
 
 class RateLimitedLogger:
