@@ -5,7 +5,7 @@ def _key(name: str) -> str:
     return f"KMEREXPR_BENCH_{name}"
 
 
-K_WORKSPACE = _key("WORKSPACE")
+K_REPOPATH = _key("REPOPATH")
 K_LOGLEVEL = _key("LOGLEVEL")
 
 
@@ -20,7 +20,13 @@ def _get_env_var(key: str) -> str:
 
 
 def workspace() -> str:
-    return os.path.realpath(_get_env_var(K_WORKSPACE))
+    return os.path.join(
+        os.path.realpath(_get_env_var(K_REPOPATH)), "solver_comparison", "workspace"
+    )
+
+
+def dataset_dir() -> str:
+    return os.path.join(os.path.realpath(_get_env_var(K_REPOPATH)), "data")
 
 
 def log_dir() -> str:
