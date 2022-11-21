@@ -1,11 +1,13 @@
 import logging
+import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Callable, List
+from typing import Callable, List, Optional, Tuple
 
 import numpy as np
 from numpy.typing import NDArray
 from solver_comparison.expconf import ExpConf
+from solver_comparison.log import DataLogger, OnlineSequenceSummary, runtime
 from solver_comparison.problem.snapshot import Snapshot
 
 
@@ -32,6 +34,55 @@ class Optimizer(ABC, ExpConf):
         p_check = np.linalg.norm(dx) ** 2 <= self.p_tol
         g_check = np.linalg.norm(dg) ** 2 <= self.g_tol
         return any([i_check, f_check, p_check, g_check])
+
+    def run(
+        self,
+        curr_p: Snapshot,
+        progress_callback: Callable[[int, float, Optional[Snapshot]], None],
+        datalogger: DataLogger,
+    ) -> Tuple[Snapshot, int, OnlineSequenceSummary]:
+        start_time = time.perf_counter()
+        saved_parameters = OnlineSequenceSummary(n=20)
+        saved_parameters.update(curr_p)
+        t = 0
+        for t in range(self.max_iter):
+
+            with runtime() as iteration_time:
+                new_p = self.step(curr_p)
+
+            df, dp, dg = (
+                new_p.f() - curr_p.f(),
+                new_p.p() - curr_p.p(),
+                new_p.g() - curr_p.g(),
+            )
+
+            curr_time = time.perf_counter() - start_time
+            datalogger.log(
+                {
+                    "time": curr_time,
+                    "iter_time": iteration_time.time,
+                    "f_before": curr_p.f(),
+                    "f_after": new_p.f(),
+                    "df": df,
+                    "|dg|_2": np.linalg.norm(dg, ord=2),
+                    "|dg|_1": np.linalg.norm(dg, ord=1),
+                    "|dg|_inf": np.linalg.norm(dg, ord=np.inf),
+                    "|dp|_2": np.linalg.norm(dp, ord=2),
+                    "|dp|_1": np.linalg.norm(dp, ord=1),
+                    "|dp|_inf": np.linalg.norm(dp, ord=np.inf),
+                }
+            )
+            datalogger.end_step()
+
+            curr_p = new_p
+            saved_parameters.update(curr_p.param)
+
+            progress_callback(self.max_iter, t / self.max_iter, curr_p)
+
+            if self.should_stop(df, dp, dg):
+                break
+
+        return curr_p, t, saved_parameters
 
 
 @dataclass

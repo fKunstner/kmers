@@ -61,55 +61,17 @@ class Experiment(ExpConf):
     def run(
         self,
         progress_callback: Optional[
-            Callable[["Experiment", float, Optional[Snapshot]], None]
+            Callable[[int, float, Optional[Snapshot]], None]
         ] = None,
     ):
         curr_p = self._startup()
-        start_time = time.perf_counter()
 
         if progress_callback is None:
             progress_callback = ExperimentMonitor().callback
 
-        saved_parameters = OnlineSequenceSummary(n=20)
-
-        t = 0
-        for t in range(self.opt.max_iter):
-
-            with runtime() as iteration_time:
-                new_p = self.opt.step(curr_p)
-
-            df, dp, dg = (
-                new_p.f() - curr_p.f(),
-                new_p.p() - curr_p.p(),
-                new_p.g() - curr_p.g(),
-            )
-
-            curr_time = time.perf_counter() - start_time
-            self.datalogger.log(
-                {
-                    "time": curr_time,
-                    "iter_time": iteration_time.time,
-                    "f_before": curr_p.f(),
-                    "f_after": new_p.f(),
-                    "df": df,
-                    "|dg|_2": np.linalg.norm(dg, ord=2),
-                    "|dg|_1": np.linalg.norm(dg, ord=1),
-                    "|dg|_inf": np.linalg.norm(dg, ord=np.inf),
-                    "|dp|_2": np.linalg.norm(dp, ord=2),
-                    "|dp|_1": np.linalg.norm(dp, ord=1),
-                    "|dp|_inf": np.linalg.norm(dp, ord=np.inf),
-                }
-            )
-
-            curr_p = new_p
-
-            self.datalogger.end_step()
-            progress_callback(self, t / self.opt.max_iter, curr_p)
-
-            saved_parameters.update(curr_p.param)
-
-            if self.opt.should_stop(df, dp, dg):
-                break
+        curr_p, t, saved_parameters = self.opt.run(
+            curr_p, progress_callback, self.datalogger
+        )
 
         self.datalogger.summary(
             {
@@ -120,7 +82,6 @@ class Experiment(ExpConf):
                 "xs": saved_parameters.get(),
             }
         )
-
         self.datalogger.save()
 
     def has_already_run(self):
@@ -137,9 +98,7 @@ class ExperimentMonitor:
         self.timelogger = RateLimitedLogger(time_interval=log_every)
         self.start_time = time.perf_counter()
 
-    def callback(self, exp: Experiment, progress: float, snap: Optional[Snapshot]):
-
-        max_iter = exp.opt.max_iter
+    def callback(self, max_iter: int, progress: float, snap: Optional[Snapshot]):
         i = int(max_iter * progress)
         i_width = len(str(max_iter))
         iter_str = f"Iter {i: >{i_width}}/{max_iter}"
