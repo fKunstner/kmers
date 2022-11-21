@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from typing import Callable, List, Optional, Tuple
 
 import numpy as np
+from exp_grad_solver import exp_grad_solver
 from numpy.typing import NDArray
 from solver_comparison.expconf import ExpConf
 from solver_comparison.log import DataLogger, OnlineSequenceSummary, runtime
@@ -166,3 +167,56 @@ class GDLS(Optimizer):
 
         assert new is not None
         return new
+
+
+@dataclass
+class ExpGrad(Optimizer):
+    """Exponentiated Gradient Descent / Mirror Descent with a line search.
+
+    Calls exp_grad_solver with the default Armijo linesearch. Does not use
+    additional features (HessInv, lrs)
+
+    Args:
+        verbose: Enables print statements
+    """
+
+    verbose: bool = True
+
+    def step(self, current: Snapshot) -> Snapshot:
+        raise ValueError
+
+    def run(
+        self,
+        curr_p: Snapshot,
+        progress_callback: Callable[[int, float, Optional[Snapshot]], None],
+        datalogger: DataLogger,
+    ) -> Tuple[Snapshot, int, OnlineSequenceSummary]:
+
+        model, param = curr_p.model, curr_p.param
+
+        if param is None:
+            import pdb
+
+            pdb.set_trace()
+
+        dict_sol = exp_grad_solver(
+            loss_grad=model.logp_grad,
+            x_0=param,
+            lrs="armijo",
+            tol=10 ** (-8.0),
+            gtol=10 ** (-8.0),
+            n_iters=self.max_iter,
+            verbose=self.verbose,
+            n=None,
+            Hessinv=False,
+        )
+
+        xs_summary = OnlineSequenceSummary(n=20)
+        for x in dict_sol["xs"]:
+            xs_summary.update(x)
+
+        return (
+            Snapshot(model, dict_sol["x"]),
+            dict_sol["iteration_counts"][-1],
+            xs_summary,
+        )

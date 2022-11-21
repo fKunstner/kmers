@@ -17,3 +17,8 @@ class Initializer(ExpConf):
             return np.ones(model.T) / model.T
         elif self.method == "zero":
             return np.zeros(model.T)
+        else:
+            raise ValueError(
+                f"Initialization method {self.method} unknown. "
+                f"Expected one of {self._METHOD_TYPE}"
+            )
