@@ -11,6 +11,7 @@ import numpy as np
 from solver_comparison.expconf import ExpConf
 from solver_comparison.log import (
     DataLogger,
+    OnlineSequenceSummary,
     RateLimitedLogger,
     exp_filepaths,
     runtime,
@@ -69,6 +70,8 @@ class Experiment(ExpConf):
         if progress_callback is None:
             progress_callback = ExperimentMonitor().callback
 
+        saved_parameters = OnlineSequenceSummary(n=20)
+
         t = 0
         for t in range(self.opt.max_iter):
 
@@ -103,6 +106,8 @@ class Experiment(ExpConf):
             self.datalogger.end_step()
             progress_callback(self, t / self.opt.max_iter, curr_p)
 
+            saved_parameters.update(curr_p.param)
+
             if self.opt.should_stop(df, dp, dg):
                 break
 
@@ -112,6 +117,7 @@ class Experiment(ExpConf):
                 "loss_records": curr_p.f(),
                 "iteration_counts": t,
                 "grad": curr_p.g().tolist(),
+                "xs": saved_parameters.get(),
             }
         )
 
