@@ -2,7 +2,7 @@ import logging
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Callable, List, Optional, Tuple
+from typing import Callable, ClassVar, List, Optional, Tuple
 
 import numpy as np
 from exp_grad_solver import exp_grad_solver
@@ -19,10 +19,11 @@ class Optimizer(ABC, ExpConf):
     """Base class for optimizers."""
 
     max_iter: int = 100
-    p_tol: float = 10 ** -16
-    g_tol: float = 10 ** -16
-    f_tol: float = 10 ** -16
+    p_tol: float = 10**-16
+    g_tol: float = 10**-16
+    f_tol: float = 10**-16
     iter: int = field(init=False)
+    solver_name: ClassVar[str] = "generic_optimizer"
 
     def __post_init__(self):
         self.iter = 0
@@ -104,11 +105,12 @@ class GDLS(Optimizer):
     """
 
     c: float = 0.5
-    max: float = 10 ** 10
+    max: float = 10**10
     decr: float = 0.5
     incr: float = 1.0
     max_iter: int = 100
     curr_ss: float = field(init=False)
+    solver_name: ClassVar[str] = "gd_linesearch"
 
     def __post_init__(self):
         super().__post_init__()
@@ -184,6 +186,7 @@ class ExpGrad(Optimizer):
 
     max_iter: int = 1000
     verbose: bool = True
+    solver_name: ClassVar[str] = "exp_grad"
 
     def step(self, current: Snapshot) -> Snapshot:
         raise ValueError
@@ -223,6 +226,8 @@ class ExpGrad(Optimizer):
 @dataclass
 class LBFGS(Optimizer):
     """LBFGS using the Scipy implementation."""
+
+    solver_name: ClassVar[str] = "lbfgs"
 
     def step(self, current: Snapshot) -> Snapshot:
         raise ValueError

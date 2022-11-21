@@ -35,8 +35,16 @@ def convert_summary_to_dict_results(summary_df):
 def make_individual_exp_plots(exp: Experiment):
     model_parameters = Model_Parameters(
         model_type=exp.prob.model_name,
-        solver_name=str(exp.opt.__class__),
+        solver_name=exp.opt.solver_name,
     )
+
+    # This is a hacky workaround.
+    """Model_Parameters is used in KmerExpr to define the optimizer to use 
+    and define its name for plotting. If the solver_name is unknown, it defaults
+    to exp_grad. We're trying to use the plotting code without modifying it, 
+    but need but we need to set our optimizers name"""
+    model_parameters.solver_name = exp.opt.solver_name
+
     problem = exp.prob.kmer_problem
     conf_path, data_path, summary_path = exp_filepaths(exp.hash())
     summary_df = pd.read_csv(summary_path)
