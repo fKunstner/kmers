@@ -62,9 +62,9 @@ Can be configured with an environment file, e.g.
 
 - On OSX/Unix, `source env.sh` with `env.sh` containing
   ```
-  export KMEREXPR_BENCH_WORKSPACE=~/path/to/workspace 
+  export KMEREXPR_BENCH_REPODIR=~/path/to/gitrepo
   ```
 - On Windows, `call env.bat` with `env.bat` containing
   ```
-  set KMEREXPR_BENCH_WORKSPACE=C:\User\user\path\to\workspace
+  set KMEREXPR_BENCH_REPODIR=C:\User\user\path\to\gitrepo
   ```
