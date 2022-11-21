@@ -7,6 +7,8 @@ from typing import Callable, List, Optional, Tuple
 import numpy as np
 from exp_grad_solver import exp_grad_solver
 from numpy.typing import NDArray
+from scipy import optimize
+from scipy.special import softmax
 from solver_comparison.expconf import ExpConf
 from solver_comparison.log import DataLogger, OnlineSequenceSummary, runtime
 from solver_comparison.problem.snapshot import Snapshot
@@ -180,6 +182,7 @@ class ExpGrad(Optimizer):
         verbose: Enables print statements
     """
 
+    max_iter: int = 1000
     verbose: bool = True
 
     def step(self, current: Snapshot) -> Snapshot:
@@ -193,11 +196,6 @@ class ExpGrad(Optimizer):
     ) -> Tuple[Snapshot, int, OnlineSequenceSummary]:
 
         model, param = curr_p.model, curr_p.param
-
-        if param is None:
-            import pdb
-
-            pdb.set_trace()
 
         dict_sol = exp_grad_solver(
             loss_grad=model.logp_grad,
@@ -220,3 +218,52 @@ class ExpGrad(Optimizer):
             dict_sol["iteration_counts"][-1],
             xs_summary,
         )
+
+
+@dataclass
+class LBFGS(Optimizer):
+    """LBFGS using the Scipy implementation."""
+
+    def step(self, current: Snapshot) -> Snapshot:
+        raise ValueError
+
+    def run(
+        self,
+        curr_p: Snapshot,
+        progress_callback: Callable[[int, float, Optional[Snapshot]], None],
+        datalogger: DataLogger,
+    ) -> Tuple[Snapshot, int, OnlineSequenceSummary]:
+
+        model, param = curr_p.model, curr_p.param
+        func = lambda theta: -model.logp_grad(theta)[0]
+        grad = lambda theta: -model.logp_grad(theta)[1]
+
+        xs_summary = OnlineSequenceSummary(n=20)
+
+        def callback(x: NDArray):
+            xs_summary.update(softmax(x))
+
+        theta_sol, f_sol, dict_flags_convergence = optimize.fmin_l_bfgs_b(
+            func,
+            param,
+            grad,
+            pgtol=1e-12,
+            factr=1.0,
+            maxiter=self.max_iter,
+            maxfun=10 * self.max_iter,
+            callback=callback,
+        )
+
+        if dict_flags_convergence["warnflag"] == 1:
+            print(
+                "WARNING: softmax model did not converge. too many function evaluations or too many iterations. Print d[task]:",
+                dict_flags_convergence["task"],
+            )
+            print("Total iterations: ", str(dict_flags_convergence["nit"]))
+        elif dict_flags_convergence["warnflag"] == 2:
+            print(
+                "WARNING: softmax model did not converge due to: ",
+                dict_flags_convergence["task"],
+            )
+
+        return Snapshot(model, theta_sol), dict_flags_convergence["nit"], xs_summary
