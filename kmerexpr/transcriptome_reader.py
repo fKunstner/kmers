@@ -38,7 +38,6 @@ def transcriptome_to_x(
     fasta_file,
     x_file,
     L=None,
-    max_nz=500 * 1000 * 1000,
     float_t=np.float32,
     int_t=np.int32,
 ):
@@ -52,9 +51,9 @@ def transcriptome_to_x(
     with open(fasta_file) as f:
         parser = fasta.read_fasta(f)
         n = 0
-        data = np.zeros(max_nz, dtype=float_t)
-        row_ind = np.zeros(max_nz, dtype=int_t)
-        col_ind = np.zeros(max_nz, dtype=int_t)
+        data = []
+        row_ind = []
+        col_ind = []
         pos = 0
         for s in parser:
             if n % 10000 == 0:
@@ -70,15 +69,11 @@ def transcriptome_to_x(
             kmer_counts = Counter(iter_filtered)
             total_count = sum(kmer_counts.values())
             for (kmer, count) in kmer_counts.items():
-                data[pos] = float_t(count / total_count)
-                row_ind[pos] = int_t(kmer_to_id(kmer))
-                col_ind[pos] = int_t(n)
+                data.append(float_t(count / total_count))
+                row_ind.append(int_t(kmer_to_id(kmer)))
+                col_ind.append(int_t(n))
                 pos += 1
             n += 1
-    print("trimming triplets")
-    data.resize(pos)
-    row_ind.resize(pos)
-    col_ind.resize(pos)
     print("building csr_matrix")
     xt = csr_matrix((data, (row_ind, col_ind)), shape=(M, n), dtype=float_t)
     print("saving csr matrix to file = ", x_file)
