@@ -67,10 +67,12 @@ def get_plot_title(problem, model_parameters):
 
 def get_path_prefix_surfix(name, N, L):
     HERE = os.path.dirname(os.path.abspath(__file__))
+    print(HERE)
     ROOT = os.path.dirname(HERE)
     DATA_PATH = os.path.join(HERE, "..", "data")
     ISO_FILE = os.path.join(DATA_PATH,  name )
     name_split = name.split(".", 1)
+    print(name_split)
     name_no_surfix = name_split[0]
     prefix = os.path.join(DATA_PATH, "model/")
     if not os.path.exists(prefix):
